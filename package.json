@@ -1,0 +1,146 @@
+{
+  "name": "smart-video-downloader-v2",
+  "title": "Smart Video Downloader v2",
+  "description": "Download videos from YouTube, Vimeo, Twitter/X, TikTok, Instagram, and 1000+ sites via yt-dlp",
+  "icon": "extension-icon.png",
+  "author": "andninecats",
+  "categories": ["Media"],
+  "license": "MIT",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "publish": "npx @raycast/api@latest publish"
+  },
+  "dependencies": {
+    "@raycast/api": "^1.99.3",
+    "execa": "^8.0.1",
+    "validator": "^13.12.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^2.0.4",
+    "@types/node": "22.13.10",
+    "@types/react": "19.0.10",
+    "@types/validator": "^13.12.2",
+    "eslint": "^9.21.0",
+    "prettier": "^3.5.2",
+    "typescript": "^5.8.2"
+  },
+  "commands": [
+    {
+      "name": "download-manager",
+      "title": "Download Manager",
+      "subtitle": "Smart Video Downloader v2",
+      "description": "Paste a URL to download videos from YouTube, Vimeo, and 1000+ sites",
+      "mode": "view"
+    },
+    {
+      "name": "download-video",
+      "title": "Download Video",
+      "subtitle": "Smart Video Downloader v2",
+      "description": "Download the video from your active browser tab",
+      "mode": "view"
+    },
+    {
+      "name": "quick-download",
+      "title": "Quick Download",
+      "subtitle": "Smart Video Downloader v2",
+      "description": "Instantly download the active browser tab video with a global hotkey",
+      "mode": "no-view"
+    },
+    {
+      "name": "cookie-settings",
+      "title": "Cookie Settings",
+      "subtitle": "Smart Video Downloader v2",
+      "description": "Manage browser cookies for age-restricted or protected content",
+      "mode": "view"
+    }
+  ],
+  "preferences": [
+    {
+      "name": "downloadPath",
+      "title": "Download Folder",
+      "description": "Where downloaded files are saved",
+      "type": "textfield",
+      "default": "~/Downloads",
+      "required": false
+    },
+    {
+      "name": "autoLoadUrlFromClipboard",
+      "title": "Paste URL from Clipboard",
+      "label": "Paste clipboard URL on open",
+      "description": "Automatically fill the search bar with a URL from your clipboard when Download Manager opens",
+      "type": "checkbox",
+      "default": true,
+      "required": false
+    },
+    {
+      "name": "forceIpv4",
+      "title": "Force IPv4",
+      "label": "Force IPv4 connections",
+      "description": "Turn on if downloads stall or fail — helps on networks with misconfigured IPv6",
+      "type": "checkbox",
+      "default": true,
+      "required": false
+    },
+    {
+      "name": "preferredCodec",
+      "title": "Preferred Video Codec",
+      "description": "Preferred video codec — the extension will try this codec first when available",
+      "type": "dropdown",
+      "default": "best",
+      "required": false,
+      "data": [
+        { "title": "Best Available", "value": "best" },
+        { "title": "AV1", "value": "av1" },
+        { "title": "VP9", "value": "vp9" },
+        { "title": "HEVC (H.265)", "value": "hevc" },
+        { "title": "H.264", "value": "h264" }
+      ]
+    },
+    {
+      "name": "maxQuality",
+      "title": "Max Quality",
+      "description": "Maximum video resolution to download",
+      "type": "dropdown",
+      "default": "best",
+      "required": false,
+      "data": [
+        { "title": "Best Available", "value": "best" },
+        { "title": "4K (2160p)", "value": "2160" },
+        { "title": "1440p", "value": "1440" },
+        { "title": "1080p", "value": "1080" },
+        { "title": "720p", "value": "720" },
+        { "title": "480p", "value": "480" }
+      ]
+    },
+    {
+      "name": "prefixUploaderInFilename",
+      "title": "Group by Channel",
+      "label": "Prefix filename with channel name",
+      "description": "Save files as \"Channel — Title.mp4\" so videos from the same uploader sort together in your downloads folder",
+      "type": "checkbox",
+      "default": true,
+      "required": false
+    },
+    {
+      "name": "includeIdInFilename",
+      "title": "Include ID in Filename",
+      "label": "Append video ID to filename",
+      "description": "Appends (videoId) to the downloaded filename to avoid collisions",
+      "type": "checkbox",
+      "default": false,
+      "required": false
+    },
+    {
+      "name": "homebrewPath",
+      "title": "Homebrew Executable",
+      "description": "Path to the brew executable — used to install yt-dlp and ffmpeg",
+      "type": "textfield",
+      "default": "/opt/homebrew/bin/brew",
+      "required": false
+    }
+  ]
+}
