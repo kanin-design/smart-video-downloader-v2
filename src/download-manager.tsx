@@ -50,10 +50,12 @@ import {
   formatDuration,
   formatFileSize,
   formatProgressTag,
+  getResolutionColor,
   isValidUrl,
   resolveDownloadPath,
   selectBestAudioFormat,
   selectBestFormat,
+  stripSiteNameSuffix,
   truncateTitle,
 } from "./utils.js";
 import CookieSettings from "./cookie-settings.js";
@@ -100,6 +102,31 @@ function completedTooltip(job: CompletedJob): string {
 
 function isCompleted(j: JobRecord): j is CompletedJob {
   return j.completedAt != null && j.filePath != null && existsSync(j.filePath);
+}
+
+function getFaviconUrl(url: string): string {
+  try {
+    const { hostname } = new URL(url);
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`;
+  } catch {
+    return "extension-icon.png";
+  }
+}
+
+/** Accessory list for a completed item: [size, colored-res-tag, Downloaded-tag] */
+function completedAccessories(
+  job: CompletedJob,
+  tooltip: string,
+): List.Item.Accessory[] {
+  const info = job.mediaInfo;
+  const resLabel = info?.resolution ?? job.formatLabel;
+  const resColor = getResolutionColor(info?.height ?? 0);
+  const size = getFileSizeStr(job.filePath);
+  return [
+    { text: size },
+    { tag: { value: resLabel, color: resColor } },
+    { tag: { value: "Downloaded", color: Color.Green }, tooltip },
+  ];
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -460,7 +487,7 @@ export default function DownloadManager() {
       <List.EmptyView
         icon={{ source: "extension-icon.png" }}
         title={title}
-        description="1000+ sites — YouTube, Vimeo, Twitter/X, TikTok, Instagram, and more"
+        description="Paste a video URL to download. Your history will appear here."
       />
     );
   }
@@ -468,21 +495,18 @@ export default function DownloadManager() {
   // ── Section renderers (named to avoid IIFE-in-JSX reconciliation cost) ────
 
   function renderUrlMatchSection(job: CompletedJob) {
-    const info = job.mediaInfo;
-    const resLabel = info?.resolution ?? job.formatLabel;
-    const size = getFileSizeStr(job.filePath);
     const tooltip = completedTooltip(job);
     return (
       <List.Section title="Downloaded">
         <List.Item
           key={job.id}
-          title={truncateTitle(job.title)}
-          icon={{ source: "extension-icon.png" }}
-          accessories={[
-            { text: resLabel },
-            { text: size },
-            { tag: { value: "Downloaded", color: Color.Green }, tooltip },
-          ]}
+          title={truncateTitle(stripSiteNameSuffix(job.title))}
+          icon={{
+            source: getFaviconUrl(job.url),
+            fallback: "extension-icon.png",
+            mask: Image.Mask.Circle,
+          }}
+          accessories={completedAccessories(job, tooltip)}
           actions={completedItemActions(job, true)}
         />
       </List.Section>
@@ -601,20 +625,17 @@ export default function DownloadManager() {
       {!isUrlMatch && completedJobs.length > 0 && (
         <List.Section title="Downloaded">
           {completedJobs.map((job) => {
-            const info = job.mediaInfo;
-            const resLabel = info?.resolution ?? job.formatLabel;
-            const size = getFileSizeStr(job.filePath);
             const tooltip = completedTooltip(job);
             return (
               <List.Item
                 key={job.id}
-                title={truncateTitle(job.title)}
-                icon={{ source: "extension-icon.png" }}
-                accessories={[
-                  { text: resLabel },
-                  { text: size },
-                  { tag: { value: "Downloaded", color: Color.Green }, tooltip },
-                ]}
+                title={truncateTitle(stripSiteNameSuffix(job.title))}
+                icon={{
+                  source: getFaviconUrl(job.url),
+                  fallback: "extension-icon.png",
+                  mask: Image.Mask.Circle,
+                }}
+                accessories={completedAccessories(job, tooltip)}
                 actions={completedItemActions(job, false)}
               />
             );

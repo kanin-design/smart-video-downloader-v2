@@ -96,6 +96,15 @@ export function truncateTitle(title: string, len = 60): string {
   return title.slice(0, len) + "…";
 }
 
+// yt-dlp often appends " - YouTube", " - Twitter/X", etc. to titles.
+// Strip those suffixes so the list shows clean titles.
+const SITE_SUFFIX_RE =
+  /\s+[-–—]\s+(YouTube|Twitter|X|Vimeo|TikTok|Instagram|Reddit|Twitch|SoundCloud|Dailymotion|Facebook|Rumble|Odysee|BitChute|Bilibili|NicoNico|Niconico)[\s.]*$/i;
+
+export function stripSiteNameSuffix(title: string): string {
+  return title.replace(SITE_SUFFIX_RE, "").trim();
+}
+
 export function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
@@ -252,7 +261,7 @@ export function getFriendlyAudioCodecName(acodec: string): string {
 export function getResolutionColor(height: number): Color {
   if (height >= 2160) return Color.Purple;
   if (height >= 1080) return Color.Blue;
-  if (height >= 720) return Color.Green;
+  if (height >= 720) return Color.Orange;
   if (height >= 480) return Color.Yellow;
   return Color.SecondaryText;
 }
