@@ -1,7 +1,6 @@
 import {
   Action,
   ActionPanel,
-  BrowserExtension,
   Color,
   Detail,
   getPreferenceValues,
@@ -12,7 +11,7 @@ import {
   useNavigation,
 } from "@raycast/api";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BrowserExtensionRequired } from "./components/BrowserExtensionRequired.js";
+import { getActiveTabUrl } from "./active-url.js";
 import { CookieSection } from "./components/CookieSection.js";
 import {
   startMetadataFetch,
@@ -23,7 +22,6 @@ import { ensureInitialized } from "./store.js";
 import type {
   ExtensionPreferences,
   JobRecord,
-  TabInfo,
   VideoMetadata,
   YtDlpFormat,
 } from "./types.js";
@@ -40,7 +38,6 @@ import {
   getFriendlyCodecName,
   getResolutionColor,
   getResolutionLabel,
-  isVideoUrl,
   selectBestAudioFormat,
   selectBestFormat,
   truncateTitle,
@@ -49,13 +46,13 @@ import CookieSettings from "./cookie-settings.js";
 
 type VideoState =
   | { type: "init" }
-  | { type: "loading"; tab: TabInfo }
-  | { type: "noTabs" }
+  | { type: "loading"; url: string }
+  | { type: "noVideo" }
   | { type: "cookieError" }
   | { type: "error"; message: string }
   | {
       type: "loaded";
-      tab: TabInfo;
+      url: string;
       meta: VideoMetadata;
       allFormats: YtDlpFormat[];
       bestFormat: YtDlpFormat | null;
@@ -66,72 +63,44 @@ export default function DownloadVideo() {
   const prefs = getPreferenceValues<ExtensionPreferences>();
   const { push } = useNavigation();
 
-  const [browserRequired, setBrowserRequired] = useState(false);
   const [videoState, setVideoState] = useState<VideoState>({ type: "init" });
-  const [tabs, setTabs] = useState<TabInfo[]>([]);
-  const [selectedTabUrl, setSelectedTabUrl] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
   const [refetchCount, setRefetchCount] = useState(0);
-
   const fetchRef = useRef<CancelFetch | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Always-current ref so the metadata effect reads latest tabs without needing
-  // tabs in its dep array (which would cause a refetch on every 2s poll).
-  const tabsRef = useRef<TabInfo[]>([]);
-  tabsRef.current = tabs;
 
-  // Poll tabs every 2 seconds
+  // On mount: get the URL from the frontmost browser tab — once
   useEffect(() => {
-    async function init() {
+    async function start() {
       await ensureInitialized();
-    }
-    init();
-
-    async function pollTabs() {
-      let allTabs: TabInfo[];
+      let activeUrl: string | null = null;
       try {
-        allTabs = (await BrowserExtension.getTabs()) as TabInfo[];
+        activeUrl = await getActiveTabUrl();
       } catch {
-        setBrowserRequired(true);
+        setVideoState({
+          type: "error",
+          message:
+            "Allow Raycast to control your browser in System Settings → Privacy → Automation",
+        });
         return;
       }
-
-      const videoTabs = allTabs.filter((t) => isVideoUrl(t.url));
-      videoTabs.sort((a, b) => (b.active ? 1 : 0) - (a.active ? 1 : 0));
-
-      setTabs(videoTabs);
-
-      if (videoTabs.length === 0) {
-        setVideoState({ type: "noTabs" });
+      if (!activeUrl) {
+        setVideoState({ type: "noVideo" });
         return;
       }
-
-      const activeTab = videoTabs.find((t) => t.active) ?? videoTabs[0];
-
-      setSelectedTabUrl((prev) => {
-        // Auto-jump only on first load; after that the user controls selection
-        if (prev === null) return activeTab.url;
-        return prev;
-      });
+      setUrl(activeUrl);
     }
-
-    pollTabs();
-    pollRef.current = setInterval(pollTabs, 2000);
-    return () => {
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
+    start();
   }, []);
 
-  // Fetch metadata when selected tab changes or cookies are re-extracted
+  // Fetch metadata whenever we have a URL (or cookies are re-extracted)
   useEffect(() => {
-    if (!selectedTabUrl) return;
-    const tab = tabsRef.current.find((t) => t.url === selectedTabUrl);
-    if (!tab) return;
+    if (!url) return;
 
     fetchRef.current?.cancel();
-    setVideoState({ type: "loading", tab });
+    setVideoState({ type: "loading", url });
 
     fetchRef.current = startMetadataFetch(
-      tab.url,
+      url,
       prefs,
       (meta) => {
         const allFormats = deduplicateFormats(meta.formats);
@@ -143,7 +112,7 @@ export default function DownloadVideo() {
         const audioFormat = selectBestAudioFormat(meta.formats);
         setVideoState({
           type: "loaded",
-          tab,
+          url,
           meta,
           allFormats,
           bestFormat,
@@ -160,7 +129,7 @@ export default function DownloadVideo() {
     return () => {
       fetchRef.current?.cancel();
     };
-  }, [selectedTabUrl, refetchCount]);
+  }, [url, refetchCount]);
 
   const onCookiesExtracted = useCallback(
     () => setRefetchCount((c) => c + 1),
@@ -171,19 +140,14 @@ export default function DownloadVideo() {
     push(<CookieSettings onSuccess={onCookiesExtracted} />);
   }
 
-  if (browserRequired)
-    return (
-      <BrowserExtensionRequired onRetry={() => setBrowserRequired(false)} />
-    );
-
   async function doDownload(
     format: JobRecord["format"],
     meta: VideoMetadata,
-    tab: TabInfo,
+    currentUrl: string,
   ) {
     try {
       startDownload(
-        tab.url,
+        currentUrl,
         meta.id,
         meta.title,
         meta.thumbnail,
@@ -191,8 +155,9 @@ export default function DownloadVideo() {
         prefs,
         meta.uploader,
       );
-      const title = truncateTitle(meta.title, 40);
-      showHUD(`⬇ Downloading "${title}"`, { clearRootSearch: true });
+      showHUD(`⬇ Downloading "${truncateTitle(meta.title, 40)}"`, {
+        clearRootSearch: true,
+      });
     } catch (err) {
       await showToast({
         style: Toast.Style.Failure,
@@ -202,39 +167,22 @@ export default function DownloadVideo() {
     }
   }
 
-  const codecLabels: Record<
-    Exclude<ExtensionPreferences["preferredCodec"], "best">,
-    string
-  > = { av1: "AV1", vp9: "VP9", hevc: "HEVC", h264: "H.264" };
-  const constraintLabel = (() => {
-    const parts: string[] = [];
-    if (prefs.maxQuality !== "best")
-      parts.push(
-        `≤${prefs.maxQuality === "2160" ? "4K" : prefs.maxQuality + "p"}`,
-      );
-    if (prefs.preferredCodec !== "best")
-      parts.push(codecLabels[prefs.preferredCodec]);
-    return parts.length > 0 ? ` (${parts.join(", ")})` : "";
-  })();
+  // ── Markdown ───────────────────────────────────────────────────────────────
 
-  // Build markdown based on state
   let markdown = "";
 
   if (videoState.type === "init") {
-    markdown = `# Loading…\n\n*Detecting video tabs…*`;
-  } else if (videoState.type === "noTabs") {
-    markdown = `# No Video Tabs Found\n\n*Open a video on YouTube, Vimeo, Twitter/X, TikTok, or another supported site.*`;
+    markdown = `# Loading…`;
+  } else if (videoState.type === "noVideo") {
+    markdown = `# No Video Found\n\n*Open a video in your browser, then run this command.*`;
   } else if (videoState.type === "loading") {
-    const tab = videoState.tab;
-    markdown = `# ${tab.title || "Loading…"}\n\n*Fetching video metadata…*`;
+    markdown = `# Loading…\n\n*Fetching video metadata…*`;
   } else if (videoState.type === "cookieError") {
     markdown = `# Cookies Required\n\n*Open the Actions menu to set up cookies for this site.*`;
   } else if (videoState.type === "error") {
     markdown = `# Could not load video\n\n*${videoState.message.replace(/\n/g, "  \n")}*`;
   } else if (videoState.type === "loaded") {
     const { meta } = videoState;
-    // Subtitle: uploader · date · duration — drop missing pieces silently
-    // rather than showing placeholders.
     const dur = meta.duration ? formatDuration(meta.duration) : null;
     const dateLabel = formatUploadDate(meta.upload_date);
     const subtitleParts: string[] = [];
@@ -247,7 +195,8 @@ export default function DownloadVideo() {
     markdown = sections.join("\n\n");
   }
 
-  // Actions
+  // ── Actions ────────────────────────────────────────────────────────────────
+
   const cookieSection = (
     <CookieSection
       onCookiesExtracted={onCookiesExtracted}
@@ -255,46 +204,23 @@ export default function DownloadVideo() {
     />
   );
 
-  const otherTabsSection = (() => {
-    const others = tabs.filter((t) => t.url !== selectedTabUrl);
-    if (others.length === 0) return null;
-    return (
-      <ActionPanel.Section title="Other Video Tabs">
-        {others.map((t) => (
-          <Action
-            key={t.url}
-            title={truncateTitle(t.title || t.url, 50)}
-            icon={Icon.Globe}
-            onAction={() => setSelectedTabUrl(t.url)}
-          />
-        ))}
-      </ActionPanel.Section>
-    );
-  })();
-
   function buildActions(): React.ReactNode {
     if (videoState.type !== "loaded") {
-      // Other Video Tabs is useful even in error/loading/cookie states so the
-      // user can switch to a working tab without restarting the command. In a
-      // cookieError, however, the cookie section IS the remediation and should
-      // come first.
-      if (videoState.type === "cookieError") {
-        return (
-          <ActionPanel>
-            {cookieSection}
-            {otherTabsSection}
-          </ActionPanel>
-        );
-      }
       return (
         <ActionPanel>
-          {otherTabsSection}
+          {videoState.type === "cookieError" ? cookieSection : null}
           {cookieSection}
         </ActionPanel>
       );
     }
 
-    const { meta, tab, allFormats, bestFormat, audioFormat } = videoState;
+    const {
+      meta,
+      allFormats,
+      bestFormat,
+      audioFormat,
+      url: currentUrl,
+    } = videoState;
 
     const formatType: JobRecord["format"] = bestFormat
       ? {
@@ -309,14 +235,14 @@ export default function DownloadVideo() {
         <Action
           title="Download"
           icon={Icon.Download}
-          onAction={() => doDownload(formatType, meta, tab)}
+          onAction={() => doDownload(formatType, meta, currentUrl)}
         />
         {audioFormat && (
           <Action
             title={audioActionTitle(audioFormat)}
             icon={Icon.Music}
             shortcut={{ modifiers: ["cmd", "shift"], key: "a" }}
-            onAction={() => doDownload({ type: "audio" }, meta, tab)}
+            onAction={() => doDownload({ type: "audio" }, meta, currentUrl)}
           />
         )}
         {allFormats.length > 0 && (
@@ -331,22 +257,39 @@ export default function DownloadVideo() {
                   doDownload(
                     { type: "specific", format: f, hasAudio },
                     meta,
-                    tab,
+                    currentUrl,
                   );
                 }}
               />
             ))}
           </ActionPanel.Section>
         )}
-        {otherTabsSection}
         {cookieSection}
       </ActionPanel>
     );
   }
 
+  // ── Metadata sidebar ───────────────────────────────────────────────────────
+
   function renderLoadedMetadata(s: Extract<VideoState, { type: "loaded" }>) {
-    const { meta, bestFormat, audioFormat, allFormats, tab } = s;
-    const selectedLabel = `Selected Format${constraintLabel}`;
+    const { meta, bestFormat, audioFormat, allFormats, url: currentUrl } = s;
+
+    const codecLabels: Record<
+      Exclude<ExtensionPreferences["preferredCodec"], "best">,
+      string
+    > = { av1: "AV1", vp9: "VP9", hevc: "HEVC", h264: "H.264" };
+    const constraintParts: string[] = [];
+    if (prefs.maxQuality !== "best")
+      constraintParts.push(
+        `≤${prefs.maxQuality === "2160" ? "4K" : prefs.maxQuality + "p"}`,
+      );
+    if (prefs.preferredCodec !== "best")
+      constraintParts.push(codecLabels[prefs.preferredCodec]);
+    const selectedLabel =
+      constraintParts.length > 0
+        ? `Selected Format (${constraintParts.join(", ")})`
+        : "Selected Format";
+
     const estVideoSize = bestFormat?.filesize ?? bestFormat?.filesize_approx;
     const estAudioSize = audioFormat?.filesize ?? audioFormat?.filesize_approx;
     const estSize =
@@ -355,15 +298,16 @@ export default function DownloadVideo() {
         : estVideoSize
           ? formatFileSize(estVideoSize)
           : "—";
-    let hostname = tab.url;
+
+    let hostname = currentUrl;
     try {
-      hostname = new URL(tab.url).hostname.replace(/^www\./, "");
+      hostname = new URL(currentUrl).hostname.replace(/^www\./, "");
     } catch {
-      // leave fallback as the raw URL
+      /* leave as raw URL */
     }
+
     const uploadedLabel = formatUploadDate(meta.upload_date);
-    // Deduplicate by height — allFormats may have AV1 + H.264 for the same
-    // resolution, which would otherwise render duplicate "1080p" tags here.
+
     const uniqueByHeight = [
       ...new Map(
         allFormats
@@ -398,8 +342,6 @@ export default function DownloadVideo() {
         </Detail.Metadata.TagList>
         <Detail.Metadata.Separator />
         <Detail.Metadata.Label title="Download size" text={estSize} />
-        {/* Duration is shown in the markdown subtitle — omit here to avoid
-            redundancy. Uploaded carries higher signal for the download decision. */}
         {uploadedLabel && (
           <Detail.Metadata.Label title="Uploaded" text={uploadedLabel} />
         )}
@@ -412,7 +354,11 @@ export default function DownloadVideo() {
         ) : meta.uploader ? (
           <Detail.Metadata.Label title="Channel" text={meta.uploader} />
         ) : null}
-        <Detail.Metadata.Link title="Source" target={tab.url} text={hostname} />
+        <Detail.Metadata.Link
+          title="Source"
+          target={currentUrl}
+          text={hostname}
+        />
         <Detail.Metadata.Separator />
         <Detail.Metadata.TagList title="Also Available">
           {uniqueByHeight.map((f) => (

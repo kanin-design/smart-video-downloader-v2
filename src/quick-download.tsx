@@ -1,7 +1,8 @@
-import { BrowserExtension, getPreferenceValues, showHUD } from "@raycast/api";
+import { Clipboard, getPreferenceValues, showHUD } from "@raycast/api";
+import { getActiveTabUrl } from "./active-url.js";
 import { startDownload } from "./downloader.js";
 import { ensureInitialized } from "./store.js";
-import type { ExtensionPreferences, JobRecord, TabInfo } from "./types.js";
+import type { ExtensionPreferences, JobRecord } from "./types.js";
 import {
   buildHeadlessLabel,
   buildHeadlessSelector,
@@ -13,20 +14,32 @@ export default async function QuickDownload() {
 
   await ensureInitialized();
 
-  let tabs: TabInfo[];
+  // 1. Try the frontmost browser tab
+  let url: string | null = null;
   try {
-    tabs = (await BrowserExtension.getTabs()) as TabInfo[];
+    url = await getActiveTabUrl();
   } catch {
-    await showHUD("❌ Raycast Browser Extension not installed", {
-      clearRootSearch: true,
-    });
+    await showHUD(
+      "❌ Allow Raycast to control your browser in System Settings → Privacy → Automation",
+      {
+        clearRootSearch: true,
+      },
+    );
     return;
   }
 
-  const activeTab = tabs.find((t) => t.active) ?? tabs[0];
+  // 2. Fall back to clipboard if no browser is in front
+  if (!url) {
+    try {
+      const clip = await Clipboard.readText();
+      if (clip && isVideoUrl(clip)) url = clip;
+    } catch {
+      /* ignore */
+    }
+  }
 
-  if (!activeTab || !isVideoUrl(activeTab.url)) {
-    await showHUD("❌ No video found in active tab", { clearRootSearch: true });
+  if (!url || !isVideoUrl(url)) {
+    await showHUD("❌ No video found", { clearRootSearch: true });
     return;
   }
 
@@ -37,31 +50,28 @@ export default async function QuickDownload() {
   const label = buildHeadlessLabel(prefs.preferredCodec, prefs.maxQuality);
   const format: JobRecord["format"] = { type: "headless", selector, label };
 
-  const tabId = String(
+  const urlId = String(
     Math.abs(
-      activeTab.url
+      url
         .split("")
         .reduce((h, c) => (Math.imul(31, h) + c.charCodeAt(0)) | 0, 0),
     ),
   );
-  const title = activeTab.title || "Video";
-  const thumbnail = activeTab.favicon || "";
 
   let job: JobRecord;
   try {
-    job = startDownload(activeTab.url, tabId, title, thumbnail, format, prefs);
+    job = startDownload(url, urlId, url, "", format, prefs);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await showHUD(`❌ ${msg}`, { clearRootSearch: true });
     return;
   }
 
-  const displayTitle = title.length > 40 ? title.slice(0, 40) + "…" : title;
   if (job.completedAt) {
     await showHUD("✓ Already downloaded — open Download Manager to find it", {
       clearRootSearch: true,
     });
   } else {
-    await showHUD(`⬇ Downloading "${displayTitle}"`, { clearRootSearch: true });
+    await showHUD(`⬇ Downloading…`, { clearRootSearch: true });
   }
 }
