@@ -444,7 +444,7 @@ export function selectBestAudioFormat(
   return audio[0];
 }
 
-export function getFormatFileSize(f: YtDlpFormat): string | null {
+function getFormatFileSize(f: YtDlpFormat): string | null {
   const bytes = f.filesize ?? f.filesize_approx;
   return bytes ? formatFileSize(bytes) : null;
 }

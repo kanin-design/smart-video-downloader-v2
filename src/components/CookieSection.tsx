@@ -2,28 +2,14 @@ import {
   Action,
   ActionPanel,
   Icon,
-  LocalStorage,
   showToast,
   Toast,
 } from "@raycast/api";
-import { extractCookies } from "../downloader.js";
-
-const LAST_BROWSER_KEY = "last-cookie-browser";
-export const LAST_EXTRACTED_AT_KEY = "last-cookie-extracted-at";
-
-export async function getLastBrowser(): Promise<string | null> {
-  return (await LocalStorage.getItem<string>(LAST_BROWSER_KEY)) ?? null;
-}
-
-export async function saveLastBrowser(browser: string): Promise<void> {
-  await LocalStorage.setItem(LAST_BROWSER_KEY, browser);
-  await LocalStorage.setItem(LAST_EXTRACTED_AT_KEY, Date.now());
-}
-
-export async function clearCookieStorage(): Promise<void> {
-  await LocalStorage.removeItem(LAST_BROWSER_KEY);
-  await LocalStorage.removeItem(LAST_EXTRACTED_AT_KEY);
-}
+import {
+  extractCookies,
+  getLastBrowser,
+  saveLastBrowser,
+} from "../downloader.js";
 
 interface CookieSectionProps {
   onCookiesExtracted?: () => void;

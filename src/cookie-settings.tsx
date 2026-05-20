@@ -14,11 +14,11 @@ import { existsSync, rmSync } from "fs";
 import { useEffect, useState } from "react";
 import {
   clearCookieStorage,
+  extractCookies,
   getLastBrowser,
   LAST_EXTRACTED_AT_KEY,
   saveLastBrowser,
-} from "./components/CookieSection.js";
-import { extractCookies } from "./downloader.js";
+} from "./downloader.js";
 import { getCookieFile } from "./utils.js";
 
 const BROWSERS = [

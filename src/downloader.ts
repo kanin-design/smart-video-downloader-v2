@@ -1,4 +1,4 @@
-import { getPreferenceValues } from "@raycast/api";
+import { getPreferenceValues, LocalStorage } from "@raycast/api";
 import { execa } from "execa";
 import { existsSync, mkdirSync, readFileSync, statSync, unlinkSync } from "fs";
 import { spawn } from "child_process";
@@ -17,6 +17,7 @@ import {
   getExpectedStreams,
   getFormatLabel,
   getLogDir,
+  getResolutionLabel,
   isCookieError,
   isProcessRunning,
   killProcessByLogFile,
@@ -42,7 +43,7 @@ import {
 
 // ── Metadata fetch ───────────────────────────────────────────────────────────
 
-export function buildMetadataArgs(
+function buildMetadataArgs(
   url: string,
   prefs: ExtensionPreferences,
 ): string[] {
@@ -263,7 +264,7 @@ function buildShellCommand(
   ].join("\n");
 }
 
-export function spawnDownload(
+function spawnDownload(
   job: JobRecord,
   prefs: ExtensionPreferences,
 ): void {
@@ -287,6 +288,20 @@ export function spawnDownload(
 
 // ── Log polling ──────────────────────────────────────────────────────────────
 
+function findOutputPath(lines: string[]): string | null {
+  for (const l of lines) {
+    const t = l.trim();
+    if (
+      t.startsWith("/") &&
+      !t.startsWith("/dev") &&
+      !/\.(part|ytdl|tmp)$/.test(t)
+    ) {
+      return t;
+    }
+  }
+  return null;
+}
+
 function pollTick(jobId: string): void {
   const job = getJobById(jobId);
   if (!job || job.completedAt) {
@@ -308,18 +323,7 @@ function pollTick(jobId: string): void {
     }
   }
 
-  let outputPath: string | null = null;
-  for (const l of lines) {
-    const t = l.trim();
-    if (
-      t.startsWith("/") &&
-      !t.startsWith("/dev") &&
-      !/\.(part|ytdl|tmp)$/.test(t)
-    ) {
-      outputPath = t;
-      break;
-    }
-  }
+  const outputPath = findOutputPath(lines);
 
   if (outputPath && existsSync(outputPath)) {
     completeJob(jobId, outputPath);
@@ -384,7 +388,7 @@ function pollTick(jobId: string): void {
   }
 }
 
-export function beginPolling(jobId: string): void {
+function beginPolling(jobId: string): void {
   if (isPolling(jobId)) return;
   startPolling(jobId, () => pollTick(jobId));
 }
@@ -400,7 +404,7 @@ export function cancelDownload(jobId: string): void {
 
 // ── Media info probing ────────────────────────────────────────────────────────
 
-export async function probeMediaInfoAsync(
+async function probeMediaInfoAsync(
   jobId: string,
   filePath: string,
 ): Promise<void> {
@@ -443,15 +447,7 @@ export async function probeMediaInfoAsync(
     const height = videoStream?.height;
     const width = videoStream?.width;
 
-    let resolution = "Audio Only";
-    if (height) {
-      if (height >= 2160) resolution = "4K";
-      else if (height >= 1440) resolution = "1440p";
-      else if (height >= 1080) resolution = "1080p";
-      else if (height >= 720) resolution = "720p";
-      else if (height >= 480) resolution = "480p";
-      else resolution = `${height}p`;
-    }
+    const resolution = height ? getResolutionLabel(height) : "Audio Only";
 
     updateJobMediaInfo(jobId, {
       resolution,
@@ -508,18 +504,11 @@ export async function resumeDownloads(): Promise<void> {
     const lines = content.split("\n");
 
     const hasSentinel = lines.some((l) => /YTDLP_EXIT:\d+/.test(l));
-    const outputLine = lines.find((l) => {
-      const t = l.trim();
-      return (
-        t.startsWith("/") &&
-        !t.startsWith("/dev") &&
-        !/\.(part|ytdl|tmp)$/.test(t)
-      );
-    });
-    const outputExists = outputLine && existsSync(outputLine.trim());
+    const outputLine = findOutputPath(lines);
+    const outputExists = outputLine && existsSync(outputLine);
 
     if (hasSentinel || outputExists) {
-      const filePath = outputExists ? outputLine!.trim() : job.filePath;
+      const filePath = outputExists ? outputLine : job.filePath;
       if (filePath) {
         updated.push({ ...job, filePath, completedAt: Date.now() });
         probeMediaInfoAsync(job.id, filePath);
@@ -611,9 +600,28 @@ async function doExtractCookies(browser: string): Promise<boolean> {
   }
 }
 
+// ── Cookie storage ────────────────────────────────────────────────────────────
+
+const LAST_BROWSER_KEY = "last-cookie-browser";
+export const LAST_EXTRACTED_AT_KEY = "last-cookie-extracted-at";
+
+export async function getLastBrowser(): Promise<string | null> {
+  return (await LocalStorage.getItem<string>(LAST_BROWSER_KEY)) ?? null;
+}
+
+export async function saveLastBrowser(browser: string): Promise<void> {
+  await LocalStorage.setItem(LAST_BROWSER_KEY, browser);
+  await LocalStorage.setItem(LAST_EXTRACTED_AT_KEY, Date.now());
+}
+
+export async function clearCookieStorage(): Promise<void> {
+  await LocalStorage.removeItem(LAST_BROWSER_KEY);
+  await LocalStorage.removeItem(LAST_EXTRACTED_AT_KEY);
+}
+
 // ── Create / start a download ─────────────────────────────────────────────────
 
-export function createJob(
+function createJob(
   url: string,
   videoId: string,
   title: string,
