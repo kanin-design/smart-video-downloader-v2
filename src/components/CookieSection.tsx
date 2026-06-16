@@ -1,10 +1,4 @@
-import {
-  Action,
-  ActionPanel,
-  Icon,
-  showToast,
-  Toast,
-} from "@raycast/api";
+import { Action, ActionPanel, Icon, showToast, Toast } from "@raycast/api";
 import {
   extractCookies,
   getLastBrowser,

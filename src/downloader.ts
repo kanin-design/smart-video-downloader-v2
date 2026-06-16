@@ -43,10 +43,7 @@ import {
 
 // ── Metadata fetch ───────────────────────────────────────────────────────────
 
-function buildMetadataArgs(
-  url: string,
-  prefs: ExtensionPreferences,
-): string[] {
+function buildMetadataArgs(url: string, prefs: ExtensionPreferences): string[] {
   const args: string[] = [];
   if (prefs.forceIpv4) args.push("--force-ipv4");
   if (cookieFileExists()) args.push("--cookies", getCookieFile());
@@ -185,7 +182,7 @@ function buildYtdlpArgs(job: JobRecord, prefs: ExtensionPreferences): string[] {
 
   if (prefs.forceIpv4) base.push("--force-ipv4");
   if (cookieFileExists()) base.push("--cookies", getCookieFile());
-  base.push("-o", outputPath);
+  base.push("--no-playlist", "-o", outputPath);
 
   switch (job.format.type) {
     case "best":
@@ -264,10 +261,7 @@ function buildShellCommand(
   ].join("\n");
 }
 
-function spawnDownload(
-  job: JobRecord,
-  prefs: ExtensionPreferences,
-): void {
+function spawnDownload(job: JobRecord, prefs: ExtensionPreferences): void {
   try {
     ensureLogDir();
     mkdirSync(path.dirname(job.logFile), { recursive: true });
