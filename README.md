@@ -1,8 +1,17 @@
-# Smart Video Downloader v2
+# Smart Video Downloader V2
 
-A Raycast extension that wraps [yt-dlp](https://github.com/yt-dlp/yt-dlp) with a native UI, persistent download state, and full background execution — downloads survive Raycast (and your terminal) closing.
+A Raycast extension that wraps [yt-dlp](https://github.com/yt-dlp/yt-dlp) with a native UI, persistent download state, and full background execution. Downloads survive Raycast — and your terminal — closing.
 
 Supports YouTube, Vimeo, Twitter/X, TikTok, Instagram, and 1000+ other sites.
+
+## Why this one
+
+Most yt-dlp wrappers on Raycast need the separate Raycast Browser Extension installed before they can see what tab you're on, and none of them give you a true one-keystroke download.
+
+- **No Browser Extension required.** Active-tab detection uses a native macOS Automation script (JXA), not the Raycast Browser Extension. One less thing to install, one less permission prompt to manage.
+- **Quick Download.** Bind a global hotkey and download whatever video is in your active browser tab instantly — no window opens, no format picker, just a HUD confirmation.
+- **Cookie-aware by default.** Extract cookies from any installed browser to pull age-restricted, members-only, or sign-in-gated content, with one-key re-extraction (⌘⇧K) the moment a cookie goes stale.
+- **Smart filenames.** Optional channel-name prefixing and ID suffixing keep large download folders sorted and collision-free.
 
 ## Screenshots
 
@@ -33,7 +42,7 @@ Extract cookies from your browser to download age-restricted, members-only, or s
 ## Requirements
 
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [ffmpeg](https://ffmpeg.org/) (the extension can install both via Homebrew if missing)
-- macOS, with Raycast's Automation permission granted on first use (needed to read the active browser tab's URL)
+- macOS, with Raycast's Automation permission granted on first use (needed to read the active browser tab's URL — no separate extension install required)
 
 ## Preferences
 
