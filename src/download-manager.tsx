@@ -371,7 +371,10 @@ export default function DownloadManager() {
     audioFormat: YtDlpFormat | null,
     allFormats: YtDlpFormat[],
   ) {
-    async function doDownload(format: JobRecord["format"]) {
+    async function doDownload(
+      format: JobRecord["format"],
+      playlistMode?: boolean,
+    ) {
       try {
         startDownload(
           searchText,
@@ -381,6 +384,7 @@ export default function DownloadManager() {
           format,
           prefs,
           meta.uploader,
+          playlistMode,
         );
         setSearchText("");
       } catch (err) {
@@ -433,6 +437,14 @@ export default function DownloadManager() {
             ))}
           </ActionPanel.Section>
         )}
+        <ActionPanel.Section title="Playlist">
+          <Action
+            title="Download Full Playlist"
+            icon={Icon.List}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "p" }}
+            onAction={() => doDownload({ type: "best" }, true)}
+          />
+        </ActionPanel.Section>
         <CookieSection
           onCookiesExtracted={onCookiesExtracted}
           pushCookieSettings={pushCookieSettings}

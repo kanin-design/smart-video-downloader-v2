@@ -25,6 +25,7 @@ export interface JobRecord {
   thumbnail: string;
   formatLabel: string;
   expectedStreams: 1 | 2;
+  playlistMode?: boolean;
   filePath?: string;
   completedAt?: number;
   mediaInfo?: MediaInfo;

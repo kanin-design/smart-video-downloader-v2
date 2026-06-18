@@ -182,7 +182,8 @@ function buildYtdlpArgs(job: JobRecord, prefs: ExtensionPreferences): string[] {
 
   if (prefs.forceIpv4) base.push("--force-ipv4");
   if (cookieFileExists()) base.push("--cookies", getCookieFile());
-  base.push("--no-playlist", "-o", outputPath);
+  if (!job.playlistMode) base.push("--no-playlist");
+  base.push("-o", outputPath);
 
   switch (job.format.type) {
     case "best":
@@ -622,6 +623,7 @@ function createJob(
   thumbnail: string,
   format: JobRecord["format"],
   uploader?: string,
+  playlistMode?: boolean,
 ): JobRecord {
   const id = `${videoId}-${Date.now()}`;
   return {
@@ -634,6 +636,7 @@ function createJob(
     thumbnail,
     formatLabel: getFormatLabel(format),
     expectedStreams: getExpectedStreams(format),
+    playlistMode,
   };
 }
 
@@ -645,14 +648,24 @@ export function startDownload(
   format: JobRecord["format"],
   prefs: ExtensionPreferences,
   uploader?: string,
+  playlistMode?: boolean,
 ): JobRecord {
   const existing = getJobs().find(
     (j) =>
       j.url === url &&
+      j.playlistMode === playlistMode &&
       (!j.completedAt || (j.filePath != null && existsSync(j.filePath))),
   );
   if (existing) return existing;
-  const job = createJob(url, videoId, title, thumbnail, format, uploader);
+  const job = createJob(
+    url,
+    videoId,
+    title,
+    thumbnail,
+    format,
+    uploader,
+    playlistMode,
+  );
   addJob(job);
   try {
     spawnDownload(job, prefs);

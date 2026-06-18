@@ -381,7 +381,7 @@ export function deduplicateFormats(formats: YtDlpFormat[]): YtDlpFormat[] {
   return result;
 }
 
-const CODEC_NAMES: Record<
+export const CODEC_NAMES: Record<
   Exclude<ExtensionPreferences["preferredCodec"], "best">,
   string
 > = {

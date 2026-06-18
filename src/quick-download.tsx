@@ -60,7 +60,13 @@ export default async function QuickDownload() {
 
   let job: JobRecord;
   try {
-    job = startDownload(url, urlId, url, "", format, prefs);
+    let videoTitle = url;
+    try {
+      videoTitle = new URL(url).hostname.replace(/^www\./, "");
+    } catch {
+      /* keep raw URL if parsing fails */
+    }
+    job = startDownload(url, urlId, videoTitle, "", format, prefs);
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await showHUD(`❌ ${msg}`, { clearRootSearch: true });

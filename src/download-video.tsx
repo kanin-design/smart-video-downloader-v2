@@ -27,6 +27,7 @@ import type {
 } from "./types.js";
 import {
   audioActionTitle,
+  CODEC_NAMES,
   deduplicateFormats,
   formatActionTitle,
   formatDuration,
@@ -206,12 +207,7 @@ export default function DownloadVideo() {
 
   function buildActions(): React.ReactNode {
     if (videoState.type !== "loaded") {
-      return (
-        <ActionPanel>
-          {videoState.type === "cookieError" ? cookieSection : null}
-          {cookieSection}
-        </ActionPanel>
-      );
+      return <ActionPanel>{cookieSection}</ActionPanel>;
     }
 
     const {
@@ -274,17 +270,13 @@ export default function DownloadVideo() {
   function renderLoadedMetadata(s: Extract<VideoState, { type: "loaded" }>) {
     const { meta, bestFormat, audioFormat, allFormats, url: currentUrl } = s;
 
-    const codecLabels: Record<
-      Exclude<ExtensionPreferences["preferredCodec"], "best">,
-      string
-    > = { av1: "AV1", vp9: "VP9", hevc: "HEVC", h264: "H.264" };
     const constraintParts: string[] = [];
     if (prefs.maxQuality !== "best")
       constraintParts.push(
         `≤${prefs.maxQuality === "2160" ? "4K" : prefs.maxQuality + "p"}`,
       );
     if (prefs.preferredCodec !== "best")
-      constraintParts.push(codecLabels[prefs.preferredCodec]);
+      constraintParts.push(CODEC_NAMES[prefs.preferredCodec]);
     const selectedLabel =
       constraintParts.length > 0
         ? `Selected Format (${constraintParts.join(", ")})`
