@@ -1,4 +1,4 @@
-# Smart Video Downloader v2 — Agent Instructions
+# Smart Video Downloader — Agent Instructions
 
 ## ⚠️ Most Important Rule
 
@@ -19,15 +19,15 @@ Read `SPECIFICATION.md` in this directory. It is the complete, authoritative spe
 
 ## Extension Identity
 
-- `name`: `"smart-video-downloader-v2"`
-- `title`: `"Smart Video Downloader v2"`
+- `name`: `"smart-video-downloader"`
+- `title`: `"Smart Video Downloader"`
 - `author`: `"andninecats"`
 
 ---
 
 ## When Done
 
-Run `npm run dev` so the extension is immediately available in Raycast for testing. The user will search for **"Smart Video Downloader v2"** to find it.
+Run `npm run dev` so the extension is immediately available in Raycast for testing. The user will search for **"Smart Video Downloader"** to find it.
 
 ---
 

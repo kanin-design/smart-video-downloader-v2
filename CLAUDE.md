@@ -1,4 +1,4 @@
-# Smart Video Downloader v2
+# Smart Video Downloader
 
 ## ⚠️ Critical: Do Not Look at Existing Code
 
@@ -21,15 +21,15 @@ Implement `SPECIFICATION.md` exactly. Read it fully before writing a single line
 
 Use these values in `package.json`:
 ```json
-"name": "smart-video-downloader-v2",
-"title": "Smart Video Downloader v2"
+"name": "smart-video-downloader",
+"title": "Smart Video Downloader"
 ```
 
 ---
 
 ## When Done Programming
 
-Run `npm run dev` — this registers the extension with Raycast so the user can immediately test it by searching **"Smart Video Downloader v2"**.
+Run `npm run dev` — this registers the extension with Raycast so the user can immediately test it by searching **"Smart Video Downloader"**.
 
 ---
 

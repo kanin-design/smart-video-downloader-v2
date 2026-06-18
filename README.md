@@ -1,4 +1,4 @@
-# Smart Video Downloader V2
+# Smart Video Downloader
 
 A Raycast extension that wraps [yt-dlp](https://github.com/yt-dlp/yt-dlp) with a native UI, persistent download state, and full background execution. Downloads survive Raycast — and your terminal — closing.
 

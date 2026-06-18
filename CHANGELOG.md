@@ -1,4 +1,4 @@
-# Smart Video Downloader V2 Changelog
+# Smart Video Downloader Changelog
 
 ## [Initial Version] - {PR_MERGE_DATE}
 
